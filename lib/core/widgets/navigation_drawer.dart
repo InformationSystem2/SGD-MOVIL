@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/services/tenant_service.dart';
 import '../../security/services/auth_service.dart';
 import '../theme/app_theme.dart';
 
@@ -16,6 +17,7 @@ class NavigationDrawerWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
+    final tenantService = Provider.of<TenantService>(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -92,6 +94,27 @@ class NavigationDrawerWidget extends StatelessWidget {
                     ),
                   ],
                 ),
+                // Plan badge
+                if (tenantService.currentPlan != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Text(
+                      'Plan ${tenantService.currentPlan}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -113,6 +136,24 @@ class NavigationDrawerWidget extends StatelessWidget {
                   icon: Icons.description_outlined,
                   title: 'Documentos',
                   route: '/documents',
+                ),
+                const SizedBox(height: 4),
+                _buildNavItem(
+                  context,
+                  icon: Icons.document_scanner_rounded,
+                  title: 'Escanear Documento',
+                  route: '/document-upload',
+                  locked: !tenantService.canUseScan,
+                  requiredPlan: 'PRO',
+                ),
+                const SizedBox(height: 4),
+                _buildNavItem(
+                  context,
+                  icon: Icons.smart_toy_rounded,
+                  title: 'Asistente IA',
+                  route: '/assistant',
+                  locked: !tenantService.canUseAssistant,
+                  requiredPlan: 'ENTERPRISE',
                 ),
                 const Divider(height: 32, indent: 8, endIndent: 8),
                 _buildNavItem(
@@ -146,6 +187,8 @@ class NavigationDrawerWidget extends StatelessWidget {
     required String title,
     required String route,
     bool isLogout = false,
+    bool locked = false,
+    String? requiredPlan,
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -168,24 +211,73 @@ class NavigationDrawerWidget extends StatelessWidget {
       textColor = AppTheme.error;
     }
 
+    if (locked) {
+      iconColor = isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight;
+      textColor = isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight;
+    }
+
     return Material(
       color: tileColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       clipBehavior: Clip.antiAlias,
       child: ListTile(
         leading: Icon(icon, color: iconColor),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: textColor,
-            fontWeight: fontWeight,
-            fontSize: 14,
-          ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: fontWeight,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            if (locked) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.warning.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_outline, size: 10, color: AppTheme.warning),
+                    const SizedBox(width: 2),
+                    Text(
+                      requiredPlan ?? 'PRO',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.warning,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
         dense: true,
         onTap: () async {
-          // Close drawer
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(); // Close drawer
+
+          if (locked) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  '🔒 Esta función requiere el plan $requiredPlan o superior. Contacte a su administrador.',
+                ),
+                backgroundColor: AppTheme.warning,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
 
           if (isLogout) {
             final authService = Provider.of<AuthService>(context, listen: false);

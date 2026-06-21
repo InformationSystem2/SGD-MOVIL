@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import 'core/config/api_config.dart';
 import 'core/services/api_client.dart';
 import 'core/services/storage_service.dart';
+import 'core/services/tenant_service.dart';
 import 'core/theme/app_theme.dart';
+import 'assistant/screens/assistant_screen.dart';
+import 'assistant/services/assistant_service.dart';
 import 'documents/screens/document_detail_screen.dart';
 import 'documents/screens/document_list_screen.dart';
 import 'documents/screens/document_upload_screen.dart';
@@ -40,6 +43,12 @@ void main() async {
         ChangeNotifierProvider<DocumentService>(
           create: (_) => DocumentService(apiClient),
         ),
+        ChangeNotifierProvider<TenantService>(
+          create: (_) => TenantService(apiClient),
+        ),
+        ChangeNotifierProvider<AssistantService>(
+          create: (_) => AssistantService(apiClient),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -64,6 +73,7 @@ class MyApp extends StatelessWidget {
         '/document-upload': (context) => const DocumentUploadScreen(),
         '/patients': (context) => const PatientListScreen(),
         '/patient-form': (context) => const PatientFormScreen(),
+        '/assistant': (context) => const AssistantScreen(),
       },
       debugShowCheckedModeBanner: false,
     );
@@ -72,6 +82,7 @@ class MyApp extends StatelessWidget {
 
 /// Dynamic gateway that routes the user based on authentication status.
 /// Displays a loading state while auto-login is being checked.
+/// Also triggers tenant info fetch on successful authentication.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -88,6 +99,7 @@ class AuthGate extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
                   color: AppTheme.primary.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
@@ -116,6 +128,13 @@ class AuthGate extends StatelessWidget {
     }
 
     if (authService.isAuthenticated) {
+      // Fetch tenant info once the user is authenticated
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final tenantService = Provider.of<TenantService>(context, listen: false);
+        if (tenantService.currentPlan == null) {
+          tenantService.fetchTenantInfo();
+        }
+      });
       return const DocumentListScreen();
     } else {
       return const LoginScreen();
