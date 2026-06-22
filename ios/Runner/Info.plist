@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>SGD Clínico necesita acceder a la cámara para escanear documentos médicos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SGD Clínico necesita acceder a tus fotos para adjuntar documentos médicos.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
