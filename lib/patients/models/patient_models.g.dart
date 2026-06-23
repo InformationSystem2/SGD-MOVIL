@@ -8,11 +8,11 @@ part of 'patient_models.dart';
 
 PatientResponse _$PatientResponseFromJson(Map<String, dynamic> json) =>
     PatientResponse(
-      id: json['id'] as String,
-      documentType: json['documentType'] as String,
-      documentNumber: json['documentNumber'] as String,
-      firstName: json['firstName'] as String,
-      lastName: json['lastName'] as String,
+      id: json['id'] as String?,
+      documentType: json['documentType'] as String?,
+      documentNumber: json['documentNumber'] as String?,
+      firstName: json['firstName'] as String?,
+      lastName: json['lastName'] as String?,
       phone: json['phone'] as String?,
       address: json['address'] as String?,
       gender: json['gender'] as String?,

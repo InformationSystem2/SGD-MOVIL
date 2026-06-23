@@ -94,6 +94,7 @@ ExternalDocumentRequest _$ExternalDocumentRequestFromJson(
     json['issueDate'] as String,
   ),
   notes: json['notes'] as String?,
+  title: json['title'] as String?,
 );
 
 Map<String, dynamic> _$ExternalDocumentRequestToJson(
@@ -103,4 +104,5 @@ Map<String, dynamic> _$ExternalDocumentRequestToJson(
   'fileUrl': instance.fileUrl,
   'issueDate': const CustomDateTimeConverter().toJson(instance.issueDate),
   'notes': instance.notes,
+  'title': instance.title,
 };

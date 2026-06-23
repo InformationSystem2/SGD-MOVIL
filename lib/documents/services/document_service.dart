@@ -59,6 +59,43 @@ class DocumentService extends ChangeNotifier {
     }
   }
 
+  /// Sends multiple files directly to the FastAPI AI microservice (OCR and Gemini analyzer)
+  /// Returns the consolidated analysis structure containing raw_text, structured_data, etc.
+  Future<Map<String, dynamic>> extractOcrFromMultipleFiles(List<List<int>> filesBytes, List<String> filenames) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      // Calculate FastAPI base URL based on Spring Boot's API configuration port mapping
+      // FastAPI runs on port 8000 (production) or 8001 (development)
+      // Usually, if Spring Boot is at http://localhost:8080/api or http://10.0.2.2:8080/api,
+      // FastAPI is at http://localhost:8000 or http://10.0.2.2:8000.
+      String fastapiUrl = ApiConfig.baseUrl
+          .replaceAll('/api', '')
+          .replaceAll(':8080', ':8001');
+          
+      final fullUrl = '$fastapiUrl/ocr/extract-multiple';
+      
+      final response = await _apiClient.uploadMultipleFiles(
+        fullUrl,
+        filesBytes: filesBytes,
+        filenames: filenames,
+        fieldName: 'files',
+      );
+      
+      final data = json.decode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      _isLoading = false;
+      notifyListeners();
+      return data;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   /// Creates a document based on a clinical template.
   Future<DocumentResponse> createDocument(DocumentRequest dto) async {
     _isLoading = true;

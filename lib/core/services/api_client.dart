@@ -117,6 +117,67 @@ class ApiClient {
     }
   }
 
+  /// Specialized method to upload multiple files to a custom endpoint, e.g. FastAPI
+  Future<http.Response> uploadMultipleFiles(
+    String fullUrl, {
+    required List<List<int>> filesBytes,
+    required List<String> filenames,
+    String fieldName = 'files',
+  }) async {
+    final url = Uri.parse(fullUrl);
+    final request = http.MultipartRequest('POST', url);
+
+    // Set auth headers if needed (FastAPI might not enforce same JWT or might allow public)
+    final headers = _getHeaders(isJson: false);
+    request.headers.addAll(headers);
+
+    for (int i = 0; i < filesBytes.length; i++) {
+      final fileBytes = filesBytes[i];
+      final filename = filenames[i];
+
+      MediaType mediaType;
+      final ext = filename.split('.').last.toLowerCase();
+      if (ext == 'pdf') {
+        mediaType = MediaType('application', 'pdf');
+      } else if (ext == 'jpg' || ext == 'jpeg') {
+        mediaType = MediaType('image', 'jpeg');
+      } else if (ext == 'png') {
+        mediaType = MediaType('image', 'png');
+      } else {
+        mediaType = MediaType('application', 'octet-stream');
+      }
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          fieldName,
+          fileBytes,
+          filename: filename,
+          contentType: mediaType,
+        ),
+      );
+    }
+
+    try {
+      final streamedResponse = await _client.send(request);
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response;
+      } else {
+        String message = 'Error en el servidor de IA (${response.statusCode})';
+        try {
+          final decoded = json.decode(utf8.decode(response.bodyBytes));
+          if (decoded is Map && decoded.containsKey('detail')) {
+            message = decoded['detail'];
+          }
+        } catch (_) {}
+        throw ApiException(message, response.statusCode);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Evaluates response status codes.
   /// Intercepts 401 Unauthorized, runs refresh token logic, and retries the request if refresh succeeds.
   Future<http.Response> _handleResponse(http.Response response, Future<http.Response> Function() retryCallback) async {

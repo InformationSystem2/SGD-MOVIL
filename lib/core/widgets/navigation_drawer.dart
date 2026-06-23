@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/tenant_service.dart';
 import '../../security/services/auth_service.dart';
+import '../../help/widgets/help_sheet.dart';
 import '../theme/app_theme.dart';
 
 class NavigationDrawerWidget extends StatelessWidget {
@@ -146,16 +147,14 @@ class NavigationDrawerWidget extends StatelessWidget {
                   locked: !tenantService.canUseScan,
                   requiredPlan: 'PRO',
                 ),
-                const SizedBox(height: 4),
+                const Divider(height: 32, indent: 8, endIndent: 8),
                 _buildNavItem(
                   context,
-                  icon: Icons.smart_toy_rounded,
-                  title: 'Asistente IA',
-                  route: '/assistant',
-                  locked: !tenantService.canUseAssistant,
-                  requiredPlan: 'ENTERPRISE',
+                  icon: Icons.help_outline_rounded,
+                  title: 'Ayuda',
+                  route: '__help__',
                 ),
-                const Divider(height: 32, indent: 8, endIndent: 8),
+                const SizedBox(height: 4),
                 _buildNavItem(
                   context,
                   icon: Icons.logout_rounded,
@@ -279,6 +278,11 @@ class NavigationDrawerWidget extends StatelessWidget {
             return;
           }
 
+          if (route == '__help__') {
+            showHelpSheet(context);
+            return;
+          }
+
           if (isLogout) {
             final authService = Provider.of<AuthService>(context, listen: false);
             await authService.logout();
@@ -289,7 +293,11 @@ class NavigationDrawerWidget extends StatelessWidget {
           }
 
           if (!isActive) {
-            Navigator.of(context).pushReplacementNamed(route);
+            if (route == '/document-upload') {
+              Navigator.of(context).pushNamed(route, arguments: {'scanOnly': true});
+            } else {
+              Navigator.of(context).pushReplacementNamed(route);
+            }
           }
         },
       ),

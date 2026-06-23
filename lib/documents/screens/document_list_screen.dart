@@ -8,6 +8,7 @@ import '../../security/services/auth_service.dart';
 import '../models/document_models.dart';
 import '../services/document_service.dart';
 import '../../patients/services/patient_service.dart';
+import '../../help/widgets/help_sheet.dart';
 import '../services/document_template_service.dart';
 
 class DocumentListScreen extends StatefulWidget {
@@ -73,6 +74,94 @@ class _DocumentListScreenState extends State<DocumentListScreen> {
     }
   }
 
+  Widget _buildDocumentCard(DocumentResponse doc, ThemeData theme, bool isDark, Color statusColor) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).pushNamed('/document-detail', arguments: doc),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Patient name + status badge
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      doc.patientName,
+                      style: theme.textTheme.titleMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: statusColor.withOpacity(0.4), width: 1),
+                    ),
+                    child: Text(
+                      _getStatusLabel(doc.status),
+                      style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              if (doc.patientDocumentNumber != null && doc.patientDocumentNumber!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text('CI: ${doc.patientDocumentNumber}', style: theme.textTheme.bodySmall),
+              ],
+              const Divider(height: 20),
+              // Document title
+              Row(
+                children: [
+                  Icon(
+                    doc.isExternalSource ? Icons.attachment_rounded : Icons.assignment_outlined,
+                    size: 16,
+                    color: AppTheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      doc.templateName ?? (doc.isExternalSource ? 'Documento Externo' : 'Documento Clínico'),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Uploader and date footer
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.person_outline, size: 14,
+                          color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                      const SizedBox(width: 4),
+                      Text(doc.uploaderName, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                  Text(
+                    DateFormat('dd/MM/yyyy').format(doc.issueDate),
+                    style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
@@ -97,6 +186,12 @@ class _DocumentListScreenState extends State<DocumentListScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
         ),
         actions: [
+          // Help button
+          IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: 'Ayuda',
+            onPressed: () => showHelpSheet(context),
+          ),
           // Current User Profile Badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -224,126 +319,7 @@ class _DocumentListScreenState extends State<DocumentListScreen> {
                                   final doc = filteredDocs[index];
                                   final statusColor = _getStatusColor(doc.status);
                                   
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    clipBehavior: Clip.antiAlias,
-                                    child: InkWell(
-                                      onTap: () {
-                                        Navigator.of(context).pushNamed(
-                                          '/document-detail',
-                                          arguments: doc,
-                                        );
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16.0),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // Patient Header
-                                            Row(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    doc.patientName,
-                                                    style: theme.textTheme.titleMedium,
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                // Status Badge
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 4,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: statusColor.withOpacity(0.12),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(
-                                                      color: statusColor.withOpacity(0.4),
-                                                      width: 1,
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    _getStatusLabel(doc.status),
-                                                    style: TextStyle(
-                                                      color: statusColor,
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            // CI Document Number if available
-                                            if (doc.patientDocumentNumber != null &&
-                                                doc.patientDocumentNumber!.isNotEmpty)
-                                              Text(
-                                                'CI: ${doc.patientDocumentNumber}',
-                                                style: theme.textTheme.bodySmall,
-                                              ),
-                                            const Divider(height: 20),
-                                            // Document Info
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  doc.isExternalSource
-                                                      ? Icons.attachment_rounded
-                                                      : Icons.assignment_outlined,
-                                                  size: 16,
-                                                  color: AppTheme.primary,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    doc.isExternalSource
-                                                        ? 'Documento Adjunto (Externo)'
-                                                        : (doc.templateName ?? 'Documento Clínico'),
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.w600,
-                                                      fontSize: 13,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            // Uploader and Date footer
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Icon(
-                                                      Icons.person_outline,
-                                                      size: 14,
-                                                      color: isDark
-                                                          ? AppTheme.textMutedDark
-                                                          : AppTheme.textMutedLight,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      doc.uploaderName,
-                                                      style: theme.textTheme.bodySmall,
-                                                    ),
-                                                  ],
-                                                ),
-                                                Text(
-                                                  DateFormat('dd/MM/yyyy').format(doc.issueDate),
-                                                  style: theme.textTheme.bodySmall?.copyWith(
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
+                                  return _buildDocumentCard(doc, theme, isDark, statusColor);
                                 },
                               ),
                   ),

@@ -170,22 +170,24 @@ class DocumentRequest extends Equatable {
 class ExternalDocumentRequest extends Equatable {
   final String patientId;
   final String fileUrl;
-  
+
   @CustomDateTimeConverter()
   final DateTime issueDate;
-  
+
   final String? notes;
+  final String? title;
 
   const ExternalDocumentRequest({
     required this.patientId,
     required this.fileUrl,
     required this.issueDate,
     this.notes,
+    this.title,
   });
 
   factory ExternalDocumentRequest.fromJson(Map<String, dynamic> json) => _$ExternalDocumentRequestFromJson(json);
   Map<String, dynamic> toJson() => _$ExternalDocumentRequestToJson(this);
 
   @override
-  List<Object?> get props => [patientId, fileUrl, issueDate, notes];
+  List<Object?> get props => [patientId, fileUrl, issueDate, notes, title];
 }

@@ -24,11 +24,11 @@ class CustomDateTimeConverter implements JsonConverter<DateTime, String> {
 
 @JsonSerializable()
 class PatientResponse extends Equatable {
-  final String id;
-  final String documentType;
-  final String documentNumber;
-  final String firstName;
-  final String lastName;
+  final String? id;
+  final String? documentType;
+  final String? documentNumber;
+  final String? firstName;
+  final String? lastName;
   final String? phone;
   final String? address;
   final String? gender;
@@ -37,18 +37,18 @@ class PatientResponse extends Equatable {
   final DateTime? birthDate;
 
   const PatientResponse({
-    required this.id,
-    required this.documentType,
-    required this.documentNumber,
-    required this.firstName,
-    required this.lastName,
+    this.id,
+    this.documentType,
+    this.documentNumber,
+    this.firstName,
+    this.lastName,
     this.phone,
     this.address,
     this.gender,
     this.birthDate,
   });
 
-  String get fullName => '$firstName $lastName';
+  String get fullName => '${firstName ?? ""} ${lastName ?? ""}'.trim();
 
   static DateTime? _parseDate(String? json) {
     if (json == null) return null;

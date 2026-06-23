@@ -5,8 +5,6 @@ import 'core/services/api_client.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/tenant_service.dart';
 import 'core/theme/app_theme.dart';
-import 'assistant/screens/assistant_screen.dart';
-import 'assistant/services/assistant_service.dart';
 import 'documents/screens/document_detail_screen.dart';
 import 'documents/screens/document_list_screen.dart';
 import 'documents/screens/document_upload_screen.dart';
@@ -46,9 +44,6 @@ void main() async {
         ChangeNotifierProvider<TenantService>(
           create: (_) => TenantService(apiClient),
         ),
-        ChangeNotifierProvider<AssistantService>(
-          create: (_) => AssistantService(apiClient),
-        ),
       ],
       child: const MyApp(),
     ),
@@ -73,7 +68,6 @@ class MyApp extends StatelessWidget {
         '/document-upload': (context) => const DocumentUploadScreen(),
         '/patients': (context) => const PatientListScreen(),
         '/patient-form': (context) => const PatientFormScreen(),
-        '/assistant': (context) => const AssistantScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

@@ -64,13 +64,54 @@ class DocumentDetailScreen extends StatelessWidget {
     return value.toString();
   }
 
+  /// Parses the notes buffer stored in clinicalContent['notas'] and returns
+  /// the user note text and the AI metadata lines separately.
+  ({String userNotes, List<MapEntry<String, String>> aiLines}) _parseExternalContent(
+      Map<String, dynamic> content) {
+    final raw = (content['notas'] as String? ?? '').trim();
+    final aiIdx = raw.indexOf('--- DETECCIÓN IA ---');
+    final beforeAi = raw.substring(0, aiIdx == -1 ? raw.length : aiIdx).trim();
+
+    // Extract user notes: skip "Título: X" line, strip "Notas: " prefix
+    final userNotes = beforeAi
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty && !l.trim().startsWith('Título:'))
+        .map((l) => l.trim().startsWith('Notas:') ? l.trim().substring(6).trim() : l.trim())
+        .join('\n')
+        .trim();
+
+    if (aiIdx == -1) return (userNotes: userNotes, aiLines: []);
+
+    final aiSection = raw.substring(aiIdx + '--- DETECCIÓN IA ---'.length).trim();
+    final aiLines = aiSection
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .map((l) {
+          if (l.startsWith('Tipo detectado:')) {
+            return MapEntry('Tipo detectado', l.substring('Tipo detectado:'.length).trim());
+          }
+          if (l.startsWith('- ')) {
+            final parts = l.substring(2).split(':');
+            if (parts.length >= 2) {
+              return MapEntry(parts[0].trim(), parts.sublist(1).join(':').trim());
+            }
+          }
+          return MapEntry('', l);
+        })
+        .where((e) => e.key.isNotEmpty)
+        .toList();
+
+    return (userNotes: userNotes, aiLines: aiLines);
+  }
+
   @override
   Widget build(BuildContext context) {
     final doc = ModalRoute.of(context)!.settings.arguments as DocumentResponse;
     final docService = Provider.of<DocumentService>(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     final statusColor = _getStatusColor(doc.status);
     final fullFileUrl = doc.fileUrl != null ? docService.getFullFileUrl(doc.fileUrl!) : null;
 
@@ -232,6 +273,127 @@ class DocumentDetailScreen extends StatelessWidget {
 
             // Document Content / File URL Card
             if (doc.isExternalSource && fullFileUrl != null) ...[
+              // ── Título y metadatos del documento externo ──────────────────
+              Builder(builder: (context) {
+                final titulo = doc.clinicalContent['titulo'] as String? ?? '';
+                final parsed = _parseExternalContent(doc.clinicalContent);
+                final hasAi = parsed.aiLines.isNotEmpty;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'INFORMACIÓN DEL DOCUMENTO',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            if (titulo.isNotEmpty) ...[
+                              _buildMetaRow(context,
+                                  label: 'Título',
+                                  value: titulo,
+                                  icon: Icons.title),
+                              const SizedBox(height: 10),
+                            ],
+                            if (parsed.userNotes.isNotEmpty)
+                              _buildMetaRow(context,
+                                  label: 'Notas',
+                                  value: parsed.userNotes,
+                                  icon: Icons.note_alt_outlined),
+                            if (titulo.isEmpty && parsed.userNotes.isEmpty)
+                              const Text(
+                                'Sin información adicional registrada.',
+                                style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ── Sección de datos detectados por IA ─────────────────
+                    if (hasAi) ...[
+                      const SizedBox(height: 12),
+                      Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: Colors.amber.withOpacity(0.4),
+                            width: 1,
+                          ),
+                        ),
+                        color: isDark
+                            ? Colors.amber.withOpacity(0.07)
+                            : Colors.amber.withOpacity(0.05),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.auto_awesome, size: 16, color: Colors.amber),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'DATOS DETECTADOS POR IA',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1,
+                                      color: Colors.amber,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 20),
+                              ...parsed.aiLines.map((entry) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        SizedBox(
+                                          width: 120,
+                                          child: Text(
+                                            entry.key,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark
+                                                  ? AppTheme.textSecondaryDark
+                                                  : AppTheme.textSecondaryLight,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            entry.value,
+                                            style: const TextStyle(fontSize: 13),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                  ],
+                );
+              }),
+
+              // ── Archivo adjunto ────────────────────────────────────────────
               Card(
                 color: isDark ? AppTheme.primary.withOpacity(0.08) : const Color(0xFFF0FDF8),
                 shape: RoundedRectangleBorder(
@@ -262,11 +424,6 @@ class DocumentDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Este es un documento externo almacenado en el servidor.',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
                         'Ruta: ${doc.fileUrl}',
                         style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
                       ),
@@ -287,7 +444,6 @@ class DocumentDetailScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       OutlinedButton.icon(
                         onPressed: () {
-                          // Display a dialog with full URL as selectable text
                           showDialog(
                             context: context,
                             builder: (ctx) => AlertDialog(

@@ -35,10 +35,10 @@ class _PatientListScreenState extends State<PatientListScreen> {
     await Provider.of<PatientService>(context, listen: false).fetchPatients();
   }
 
-  String _getInitials(String firstName, String lastName) {
+  String _getInitials(String? firstName, String? lastName) {
     String init = '';
-    if (firstName.isNotEmpty) init += firstName[0];
-    if (lastName.isNotEmpty) init += lastName[0];
+    if (firstName != null && firstName.isNotEmpty) init += firstName[0];
+    if (lastName != null && lastName.isNotEmpty) init += lastName[0];
     return init.toUpperCase();
   }
 
@@ -68,7 +68,8 @@ class _PatientListScreenState extends State<PatientListScreen> {
               Navigator.of(ctx).pop();
               final patientService = Provider.of<PatientService>(context, listen: false);
               try {
-                await patientService.deletePatient(patient.id);
+                if (patient.id == null) throw Exception('El ID del paciente es nulo');
+                await patientService.deletePatient(patient.id!);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -104,7 +105,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
     final filteredPatients = patientService.patients.where((p) {
       final query = _searchQuery.toLowerCase();
       final nameMatch = p.fullName.toLowerCase().contains(query);
-      final docMatch = p.documentNumber.toLowerCase().contains(query);
+      final docMatch = (p.documentNumber ?? '').toLowerCase().contains(query);
       return nameMatch || docMatch;
     }).toList();
 
@@ -244,7 +245,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
                                                     ),
                                                     const SizedBox(height: 2),
                                                     Text(
-                                                      '${p.documentType}: ${p.documentNumber}',
+                                                      '${p.documentType ?? "Sin Tipo"}: ${p.documentNumber ?? "Sin CI"}',
                                                       style: theme.textTheme.bodySmall?.copyWith(
                                                         fontWeight: FontWeight.bold,
                                                       ),

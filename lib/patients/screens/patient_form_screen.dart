@@ -37,10 +37,21 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       final args = ModalRoute.of(context)!.settings.arguments;
       if (args != null && args is PatientResponse) {
         _existingPatient = args;
-        _firstNameController.text = _existingPatient!.firstName;
-        _lastNameController.text = _existingPatient!.lastName;
-        _documentType = _existingPatient!.documentType;
-        _documentNumberController.text = _existingPatient!.documentNumber;
+        _firstNameController.text = _existingPatient!.firstName ?? '';
+        _lastNameController.text = _existingPatient!.lastName ?? '';
+        
+        final rawDocType = (_existingPatient!.documentType ?? 'CI').toUpperCase();
+        if (rawDocType.contains('PASAPORTE')) {
+          _documentType = 'PASAPORTE';
+        } else if (rawDocType.contains('LIBRETA') || rawDocType.contains('MILITAR')) {
+          _documentType = 'LIBRETA_MILITAR';
+        } else if (rawDocType.contains('OTRO')) {
+          _documentType = 'OTRO';
+        } else {
+          _documentType = 'CI';
+        }
+
+        _documentNumberController.text = _existingPatient!.documentNumber ?? '';
         _phoneController.text = _existingPatient!.phone ?? '';
         _addressController.text = _existingPatient!.address ?? '';
         if (_existingPatient!.gender != null) {
@@ -130,7 +141,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
           gender: backendGender,
           birthDate: _birthDate!,
         );
-        await patientService.updatePatient(_existingPatient!.id, request);
+        await patientService.updatePatient(_existingPatient!.id!, request);
       }
 
       if (mounted) {
@@ -244,9 +255,12 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                           labelText: 'Tipo de Documento',
                           prefixIcon: Icon(Icons.badge_outlined),
                         ),
-                        items: ['CI', 'Pasaporte', 'Libreta Militar', 'Otro'].map((type) {
-                          return DropdownMenuItem(value: type, child: Text(type));
-                        }).toList(),
+                        items: const [
+                          DropdownMenuItem(value: 'CI', child: Text('CI')),
+                          DropdownMenuItem(value: 'PASAPORTE', child: Text('Pasaporte')),
+                          DropdownMenuItem(value: 'LIBRETA_MILITAR', child: Text('Libreta Militar')),
+                          DropdownMenuItem(value: 'OTRO', child: Text('Otro')),
+                        ],
                         onChanged: (val) {
                           if (val != null) {
                             setState(() => _documentType = val);
