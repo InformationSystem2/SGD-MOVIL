@@ -44,6 +44,10 @@ dependencies:
   equatable: ^2.0.8 # Ya estaba en la última versión, mantenido
   image_picker: ^1.1.2 # Camera capture for document scanning
   pdf: ^3.13.0
+  firebase_core: ^3.13.1
+  firebase_messaging: ^15.2.5
+  flutter_local_notifications: ^22.0.1
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +75,7 @@ flutter:
 
   assets:
     - assets/iconSGDpng.png
+    - .env
 
   # To add assets to your application, add an assets section, like this:
   # assets:

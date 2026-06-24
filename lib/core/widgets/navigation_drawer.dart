@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/tenant_service.dart';
+import '../../notifications/services/notification_service.dart';
 import '../../security/services/auth_service.dart';
 import '../../help/widgets/help_sheet.dart';
 import '../theme/app_theme.dart';
@@ -36,8 +37,8 @@ class NavigationDrawerWidget extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: isDark 
-                    ? [AppTheme.primaryDark, AppTheme.bgSurfaceDark] 
+                colors: isDark
+                    ? [AppTheme.primaryDark, AppTheme.bgSurfaceDark]
                     : [AppTheme.primary, AppTheme.primaryDark],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -147,6 +148,19 @@ class NavigationDrawerWidget extends StatelessWidget {
                   locked: !tenantService.canUseScan,
                   requiredPlan: 'PRO',
                 ),
+                const SizedBox(height: 4),
+                // Notifications nav item with unread badge
+                Consumer<NotificationService>(
+                  builder: (context, notifService, _) {
+                    return _buildNavItem(
+                      context,
+                      icon: Icons.notifications_outlined,
+                      title: 'Notificaciones',
+                      route: '/notifications',
+                      badgeCount: notifService.unreadCount,
+                    );
+                  },
+                ),
                 const Divider(height: 32, indent: 8, endIndent: 8),
                 _buildNavItem(
                   context,
@@ -165,7 +179,7 @@ class NavigationDrawerWidget extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Drawer Footer Version Info
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -188,6 +202,7 @@ class NavigationDrawerWidget extends StatelessWidget {
     bool isLogout = false,
     bool locked = false,
     String? requiredPlan,
+    int badgeCount = 0,
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -220,7 +235,34 @@ class NavigationDrawerWidget extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: Icon(icon, color: iconColor),
+        leading: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(icon, color: iconColor),
+            if (badgeCount > 0)
+              Positioned(
+                top: -4,
+                right: -6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppTheme.error,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 14),
+                  child: Text(
+                    badgeCount > 99 ? '99+' : badgeCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        ),
         title: Row(
           children: [
             Expanded(
@@ -284,6 +326,11 @@ class NavigationDrawerWidget extends StatelessWidget {
           }
 
           if (isLogout) {
+            final notificationService =
+                Provider.of<NotificationService>(context, listen: false);
+            await notificationService.deregisterToken();
+            notificationService.reset();
+
             final authService = Provider.of<AuthService>(context, listen: false);
             await authService.logout();
             if (context.mounted) {

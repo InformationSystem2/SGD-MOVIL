@@ -1,8 +1,11 @@
 // ignore_for_file: deprecated_member_use
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/config/api_config.dart';
+import '../../core/services/storage_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../notifications/services/notification_service.dart';
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -37,6 +40,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       if (success) {
+        // Initialize push notifications now that the user is authenticated
+        final storageService =
+            Provider.of<StorageService>(context, listen: false);
+        final notificationService =
+            Provider.of<NotificationService>(context, listen: false);
+        notificationService.initialize(storageService);
+
         Navigator.of(context).pushReplacementNamed('/documents');
       }
     }
@@ -130,11 +140,12 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Configurar servidor',
-            onPressed: _showSettingsDialog,
-          ),
+          if (!kReleaseMode)
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Configurar servidor',
+              onPressed: _showSettingsDialog,
+            ),
         ],
       ),
       body: SafeArea(
@@ -299,27 +310,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   
-                  // Server connection feedback indicator
-                  Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppTheme.success,
-                            shape: BoxShape.circle,
+                  // Server connection feedback indicator (solo en debug/profile)
+                  if (!kReleaseMode)
+                    Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.success,
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Conectado a: ${ApiConfig.baseUrl.replaceAll('/api', '')}',
-                          style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(
+                            'Conectado a: ${ApiConfig.baseUrl.replaceAll('/api', '')}',
+                            style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

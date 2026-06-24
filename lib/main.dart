@@ -1,4 +1,7 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'core/config/api_config.dart';
 import 'core/services/api_client.dart';
@@ -10,6 +13,8 @@ import 'documents/screens/document_list_screen.dart';
 import 'documents/screens/document_upload_screen.dart';
 import 'documents/services/document_service.dart';
 import 'documents/services/document_template_service.dart';
+import 'notifications/screens/notifications_screen.dart';
+import 'notifications/services/notification_service.dart';
 import 'patients/services/patient_service.dart';
 import 'patients/screens/patient_list_screen.dart';
 import 'patients/screens/patient_form_screen.dart';
@@ -18,8 +23,17 @@ import 'security/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize base configurations
+
+  // Load environment variables
+  await dotenv.load(fileName: '.env');
+
+  // Initialize Firebase
+  await Firebase.initializeApp();
+
+  // Register background message handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // Initialize base configurations (uses .env prod URL in release mode)
   await ApiConfig.init();
   final storageService = await StorageService.getInstance();
   final apiClient = ApiClient(storageService);
@@ -43,6 +57,9 @@ void main() async {
         ),
         ChangeNotifierProvider<TenantService>(
           create: (_) => TenantService(apiClient),
+        ),
+        ChangeNotifierProvider<NotificationService>(
+          create: (_) => NotificationService(apiClient),
         ),
       ],
       child: const MyApp(),
@@ -68,6 +85,7 @@ class MyApp extends StatelessWidget {
         '/document-upload': (context) => const DocumentUploadScreen(),
         '/patients': (context) => const PatientListScreen(),
         '/patient-form': (context) => const PatientFormScreen(),
+        '/notifications': (context) => const NotificationsScreen(),
       },
       debugShowCheckedModeBanner: false,
     );
@@ -76,7 +94,7 @@ class MyApp extends StatelessWidget {
 
 /// Dynamic gateway that routes the user based on authentication status.
 /// Displays a loading state while auto-login is being checked.
-/// Also triggers tenant info fetch on successful authentication.
+/// Also triggers tenant info fetch and notification initialization on successful authentication.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -122,12 +140,17 @@ class AuthGate extends StatelessWidget {
     }
 
     if (authService.isAuthenticated) {
-      // Fetch tenant info once the user is authenticated
+      // Fetch tenant info and initialize notifications once the user is authenticated
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final tenantService = Provider.of<TenantService>(context, listen: false);
         if (tenantService.currentPlan == null) {
           tenantService.fetchTenantInfo();
         }
+
+        final storageService = Provider.of<StorageService>(context, listen: false);
+        final notificationService =
+            Provider.of<NotificationService>(context, listen: false);
+        notificationService.initialize(storageService);
       });
       return const DocumentListScreen();
     } else {
