@@ -1,61 +1,66 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiConfig {
   static const String _keyApiUrl = 'custom_api_url';
-  
-  // Default base URL depending on platform
+
+  /// URL de producción leída del .env — solo se usa en release builds.
+  static String get _prodUrl =>
+      dotenv.env['PROD_API_URL'] ??
+      'https://si2-sgd-hc-backend-623982872710.southamerica-east1.run.app/api';
+
+  /// URL por defecto para desarrollo según plataforma.
   static String get defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:8080/api';
-    } else if (defaultTargetPlatform == TargetPlatform.android) {
-      // Default to Android Emulator host IP pointing to machine localhost
+    if (kIsWeb) return 'http://localhost:8080/api';
+    if (defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:8080/api';
-    } else {
-      // For Linux, macOS, Windows desktops, and iOS simulators running on host machine
-      return 'http://localhost:8080/api';
     }
+    return 'http://localhost:8080/api';
   }
 
-  static String _currentBaseUrl = defaultBaseUrl;
+  static String _currentBaseUrl = '';
 
   static String get baseUrl => _currentBaseUrl;
 
-  /// Loads custom base URL if saved in preferences, otherwise defaults to platform default.
+  /// En release siempre usa la URL del .env.
+  /// En debug/profile carga la URL guardada por el usuario (o el default).
   static Future<void> init() async {
+    if (kReleaseMode) {
+      _currentBaseUrl = _prodUrl;
+      return;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       _currentBaseUrl = prefs.getString(_keyApiUrl) ?? defaultBaseUrl;
-    } catch (e) {
+    } catch (_) {
       _currentBaseUrl = defaultBaseUrl;
     }
   }
 
-  /// Sets and persists a new base URL.
+  /// Solo disponible en modo debug/profile.
   static Future<void> setBaseUrl(String url) async {
-    // Basic formatting
-    String formattedUrl = url.trim();
-    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-      formattedUrl = 'http://$formattedUrl';
+    if (kReleaseMode) return;
+    String formatted = url.trim();
+    if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
+      formatted = 'http://$formatted';
     }
-    if (formattedUrl.endsWith('/')) {
-      formattedUrl = formattedUrl.substring(0, formattedUrl.length - 1);
+    if (formatted.endsWith('/')) {
+      formatted = formatted.substring(0, formatted.length - 1);
     }
-    if (!formattedUrl.endsWith('/api')) {
-      formattedUrl = '$formattedUrl/api';
+    if (!formatted.endsWith('/api')) {
+      formatted = '$formatted/api';
     }
-
-    _currentBaseUrl = formattedUrl;
+    _currentBaseUrl = formatted;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyApiUrl, formattedUrl);
-    } catch (_) {
-      // SharedPreferences error ignored in tests
-    }
+      await prefs.setString(_keyApiUrl, formatted);
+    } catch (_) {}
   }
 
-  /// Reset to the platform default
+  /// Solo disponible en modo debug/profile.
   static Future<void> resetToDefault() async {
+    if (kReleaseMode) return;
     _currentBaseUrl = defaultBaseUrl;
     try {
       final prefs = await SharedPreferences.getInstance();

@@ -6,8 +6,16 @@ import '../../core/theme/app_theme.dart';
 import '../models/document_models.dart';
 import '../services/document_service.dart';
 
-class DocumentDetailScreen extends StatelessWidget {
+class DocumentDetailScreen extends StatefulWidget {
   const DocumentDetailScreen({super.key});
+
+  @override
+  State<DocumentDetailScreen> createState() => _DocumentDetailScreenState();
+}
+
+class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
+  Map<String, dynamic>? _ocrData;
+  bool _ocrLoaded = false;
 
   Color _getStatusColor(DocumentStatus status) {
     switch (status) {
@@ -103,6 +111,19 @@ class DocumentDetailScreen extends StatelessWidget {
         .toList();
 
     return (userNotes: userNotes, aiLines: aiLines);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_ocrLoaded) {
+      _ocrLoaded = true;
+      final doc = ModalRoute.of(context)!.settings.arguments as DocumentResponse;
+      final docService = Provider.of<DocumentService>(context, listen: false);
+      docService.getOcrResult(doc.id).then((data) {
+        if (mounted) setState(() => _ocrData = data);
+      });
+    }
   }
 
   @override
@@ -276,8 +297,7 @@ class DocumentDetailScreen extends StatelessWidget {
               // ── Título y metadatos del documento externo ──────────────────
               Builder(builder: (context) {
                 final titulo = doc.clinicalContent['titulo'] as String? ?? '';
-                final parsed = _parseExternalContent(doc.clinicalContent);
-                final hasAi = parsed.aiLines.isNotEmpty;
+                final userNotes = (doc.clinicalContent['notas'] as String? ?? '').trim();
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -305,12 +325,12 @@ class DocumentDetailScreen extends StatelessWidget {
                                   icon: Icons.title),
                               const SizedBox(height: 10),
                             ],
-                            if (parsed.userNotes.isNotEmpty)
+                            if (userNotes.isNotEmpty)
                               _buildMetaRow(context,
                                   label: 'Notas',
-                                  value: parsed.userNotes,
+                                  value: userNotes,
                                   icon: Icons.note_alt_outlined),
-                            if (titulo.isEmpty && parsed.userNotes.isEmpty)
+                            if (titulo.isEmpty && userNotes.isEmpty)
                               const Text(
                                 'Sin información adicional registrada.',
                                 style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
@@ -320,73 +340,10 @@ class DocumentDetailScreen extends StatelessWidget {
                       ),
                     ),
 
-                    // ── Sección de datos detectados por IA ─────────────────
-                    if (hasAi) ...[
+                    // ── Sección de datos detectados por IA (desde BD) ──────
+                    if (_ocrData != null) ...[
                       const SizedBox(height: 12),
-                      Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: Colors.amber.withOpacity(0.4),
-                            width: 1,
-                          ),
-                        ),
-                        color: isDark
-                            ? Colors.amber.withOpacity(0.07)
-                            : Colors.amber.withOpacity(0.05),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(Icons.auto_awesome, size: 16, color: Colors.amber),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'DATOS DETECTADOS POR IA',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1,
-                                      color: Colors.amber,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Divider(height: 20),
-                              ...parsed.aiLines.map((entry) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        SizedBox(
-                                          width: 120,
-                                          child: Text(
-                                            entry.key,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: isDark
-                                                  ? AppTheme.textSecondaryDark
-                                                  : AppTheme.textSecondaryLight,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            entry.value,
-                                            style: const TextStyle(fontSize: 13),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )),
-                            ],
-                          ),
-                        ),
-                      ),
+                      _buildOcrCard(isDark, _ocrData!),
                     ],
                     const SizedBox(height: 12),
                   ],
@@ -562,6 +519,99 @@ class DocumentDetailScreen extends StatelessWidget {
                 ),
               ],
             ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOcrCard(bool isDark, Map<String, dynamic> ocr) {
+    final structured = (ocr['structured_data'] as Map?)?.cast<String, dynamic>() ?? {};
+    final rawText = ocr['raw_text'] as String? ?? '';
+    final tipoDoc = structured['tipo_documento'] as String?;
+    final paciente = structured['paciente'] as String?;
+    final fecha = structured['fecha'] as String?;
+    final medico = structured['medico_tratante'] as String?;
+    final datosClaveRaw = structured['datos_clave'];
+    final datosClave = datosClaveRaw is Map ? datosClaveRaw.cast<String, dynamic>() : <String, dynamic>{};
+
+    final fields = <MapEntry<String, String>>[
+      if (tipoDoc != null && tipoDoc.isNotEmpty) MapEntry('Tipo de documento', tipoDoc),
+      if (paciente != null && paciente.isNotEmpty) MapEntry('Paciente', paciente),
+      if (fecha != null && fecha.isNotEmpty) MapEntry('Fecha', fecha),
+      if (medico != null && medico.isNotEmpty) MapEntry('Médico tratante', medico),
+      ...datosClave.entries.map((e) => MapEntry(_formatKey(e.key), _formatValue(e.value))),
+    ];
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.amber.withOpacity(0.4), width: 1),
+      ),
+      color: isDark ? Colors.amber.withOpacity(0.07) : Colors.amber.withOpacity(0.05),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.auto_awesome, size: 16, color: Colors.amber),
+                SizedBox(width: 8),
+                Text(
+                  'DATOS DETECTADOS POR IA',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                    color: Colors.amber,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            ...fields.map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 130,
+                        child: Text(
+                          e.key,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(e.value, style: const TextStyle(fontSize: 13)),
+                      ),
+                    ],
+                  ),
+                )),
+            if (rawText.isNotEmpty) ...[
+              const Divider(height: 20),
+              Text(
+                'TEXTO EXTRAÍDO',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                  color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                rawText,
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                maxLines: 6,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ],
         ),
       ),

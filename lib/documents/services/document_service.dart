@@ -96,6 +96,29 @@ class DocumentService extends ChangeNotifier {
     }
   }
 
+  /// Saves pre-computed OCR results to document_ocr_metadata via Spring Boot.
+  Future<void> saveOcrResult(String documentId, Map<String, dynamic> ocrResult) async {
+    try {
+      await _apiClient.post('/documents/$documentId/ocr/result', body: ocrResult);
+    } catch (e) {
+      debugPrint('Error guardando OCR result: $e');
+    }
+  }
+
+  /// Fetches stored OCR result from document_ocr_metadata.
+  Future<Map<String, dynamic>?> getOcrResult(String documentId) async {
+    try {
+      final response = await _apiClient.get('/documents/$documentId/ocr');
+      if (response.statusCode == 200) {
+        return json.decode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('No hay OCR para el documento: $e');
+      return null;
+    }
+  }
+
   /// Creates a document based on a clinical template.
   Future<DocumentResponse> createDocument(DocumentRequest dto) async {
     _isLoading = true;

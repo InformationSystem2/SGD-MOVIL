@@ -15,6 +15,7 @@ import '../services/document_template_service.dart';
 import '../widgets/dynamic_form_widget.dart';
 import '../../help/widgets/help_sheet.dart';
 import 'package:pdf/widgets.dart' as pdf_lib;
+import 'scanner_screen.dart';
 
 class DocumentUploadScreen extends StatefulWidget {
   const DocumentUploadScreen({super.key});
@@ -120,29 +121,18 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> with Single
     }
   }
 
-  // --- Camera scanner logic ---
+  // --- Open Adobe Scan-style scanner ---
   Future<void> _scanDocument() async {
-    try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 90,
-        preferredCameraDevice: CameraDevice.rear,
-      );
-
-      if (image != null) {
-        setState(() {
-          _scannedImages.add(image);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al acceder a la cámara: $e'),
-            backgroundColor: AppTheme.error,
-          ),
-        );
-      }
+    final result = await Navigator.of(context).push<List<XFile>>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ScannerScreen(initialPages: List.from(_scannedImages)),
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      setState(() => _scannedImages
+        ..clear()
+        ..addAll(result));
     }
   }
 
@@ -178,6 +168,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> with Single
     Map<String, dynamic> aiKeyData = const {},
     String aiDetectedType = '',
     bool aiSuccess = false,
+    Map<String, dynamic> fullOcrResult = const {},
   }) async {
     final pdfDoc = pdf_lib.Document();
     for (final imgFile in _scannedImages) {
@@ -198,24 +189,19 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> with Single
     final pdfFilename = 'scan_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final relativeUrl = await docService.uploadFile(pdfBytes, pdfFilename);
 
-    final bufferNotes = StringBuffer();
-    bufferNotes.writeln('Título: $title');
-    if (notes.isNotEmpty) bufferNotes.writeln('Notas: $notes');
-    if (aiSuccess) {
-      bufferNotes.writeln('\n--- DETECCIÓN IA ---');
-      bufferNotes.writeln('Tipo detectado: $aiDetectedType');
-      aiKeyData.forEach((key, val) => bufferNotes.writeln('- $key: $val'));
-    }
-
     final req = ExternalDocumentRequest(
       patientId: _selectedPatientId!,
       fileUrl: relativeUrl,
       issueDate: _issueDate,
       title: title,
-      notes: bufferNotes.toString(),
+      notes: notes.isNotEmpty ? notes : null,
     );
 
-    await docService.createExternalDocument(req);
+    final createdDoc = await docService.createExternalDocument(req);
+
+    if (aiSuccess && fullOcrResult.isNotEmpty) {
+      await docService.saveOcrResult(createdDoc.id, fullOcrResult);
+    }
   }
 
   // --- Submission: Save scanned document directly (no AI) ---
@@ -409,6 +395,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> with Single
         aiKeyData: detectedKeyData,
         aiDetectedType: detectedType,
         aiSuccess: aiSuccess,
+        fullOcrResult: ocrResult,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -957,7 +944,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> with Single
                               ),
                               const SizedBox(height: 8),
                               const Text(
-                                'Toque para capturar múltiples páginas.\nPuede guardar directamente o procesar con IA.',
+                                'Toque para abrir el escáner.\nCapture con cámara o importe desde galería.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(fontSize: 13, color: Colors.grey),
                               ),
