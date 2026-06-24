@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/config/api_config.dart';
 import '../../core/services/tenant_service.dart';
 import '../../patients/services/patient_service.dart';
 import '../models/document_models.dart';
@@ -263,7 +264,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> with Single
       detectedKeyData = structured['datos_clave'] ?? {};
       aiSuccess = true;
     } catch (e) {
-      debugPrint('FastAPI OCR falló o no está disponible: $e');
+      debugPrint('FastAPI OCR falló: $e (URL: ${ApiConfig.fastapiUrl}/ocr/extract-multiple)');
     }
     setState(() => _isUploadingScan = false);
 

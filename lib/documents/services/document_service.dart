@@ -67,15 +67,7 @@ class DocumentService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Calculate FastAPI base URL based on Spring Boot's API configuration port mapping
-      // FastAPI runs on port 8000 (production) or 8001 (development)
-      // Usually, if Spring Boot is at http://localhost:8080/api or http://10.0.2.2:8080/api,
-      // FastAPI is at http://localhost:8000 or http://10.0.2.2:8000.
-      String fastapiUrl = ApiConfig.baseUrl
-          .replaceAll('/api', '')
-          .replaceAll(':8080', ':8001');
-          
-      final fullUrl = '$fastapiUrl/ocr/extract-multiple';
+      final fullUrl = '${ApiConfig.fastapiUrl}/ocr/extract-multiple';
       
       final response = await _apiClient.uploadMultipleFiles(
         fullUrl,
